@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Ежедневник мастера</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+            --light: #f8f9fa;
+            --dark: #34495e;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --gray: #95a5a6;
+            --border: #e0e0e0;
+            --row-even: #f8f9fa;
+            --row-odd: #ffffff;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        body {
+            background: var(--light);
+            color: var(--primary);
+            padding: 10px;
+            max-width: 100%;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px 0;
+            position: sticky;
+            top: 0;
+            background: var(--light);
+            z-index: 10;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .app-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .month-nav {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        button {
+            background: none;
+            border: none;
+            color: var(--primary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        
+        button:active {
+            background: rgba(0,0,0,0.05);
+        }
+        
+        .current-month {
+            font-weight: 500;
+            min-width: 140px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+        
+        .diary-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        
+        .diary-table th {
+            background: var(--primary);
+            color: white;
+            font-weight: 500;
+            padding: 12px 8px;
+            text-align: left;
+        }
+        
+        .diary-table td {
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+        
+        .diary-table tr:nth-child(even) {
+            background: var(--row-even);
+        }
+        
+        .diary-table tr:nth-child(odd) {
+            background: var(--row-odd);
+        }
+        
+        .day-number {
+            font-weight: 500;
+            width: 40px;
+            text-align: center;
+        }
+        
+        .day-entries {
+            min-height: 60px;
+        }
+        
+        .day-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            background: rgba(52, 152, 219, 0.05);
+        }
+        
+        .day-entry.work {
+            border-left: 3px solid var(--success);
+        }
+        
+        .day-entry.personal {
+            border-left: 3px solid var(--secondary);
+        }
+        
+        .entry-time {
+            font-weight: 500;
+            font-size: 0.9rem;
+            color: var(--dark);
+        }
+        
+        .entry-title {
+            font-weight: 500;
+        }
+        
+        .entry-comment {
+            font-size: 0.9rem;
+            color: var(--gray);
+            margin-top: 4px;
+        }
+        
+        .price-cell, .expenses-cell {
+            min-width: 80px;
+        }
+        
+        .price-value, .expense-value {
+            font-weight: 500;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .price-value {
+            color: var(--success);
+        }
+        
+        .expense-value {
+            color: var(--accent);
+        }
+        
+        .expense-category {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+        
+        .plans-cell {
+            min-width: 120px;
+        }
+        
+        .plan-item {
+            margin-bottom: 8px;
+            padding: 6px;
+            background: rgba(149, 165, 166, 0.05);
+            border-radius: 4px;
+        }
+        
+        .actions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            background: var(--light);
+            padding: 12px 15px;
+            border-top: 1px solid var(--border);
+            gap: 10px;
+            z-index: 20;
+        }
+        
+        .actions button {
+            flex: 1;
+            background: var(--primary);
+            color: white;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .actions button:active {
+            opacity: 0.9;
+        }
+        
+        .actions .btn-primary {
+            background: var(--accent);
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 15px;
+            display: none;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .modal-header {
+            padding: 20px;
+            font-weight: 500;
+            font-size: 1.2rem;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: white;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            background: var(--light);
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .required:after {
+            content: " *";
+            color: var(--accent);
+        }
+        
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+        }
+        
+        .modal-footer button {
+            flex: 1;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: var(--light);
+            color: var(--dark);
+        }
+        
+        .delete-btn {
+            color: var(--accent);
+            margin-top: 10px;
+            padding: 5px;
+            font-size: 0.9rem;
+            display: inline-block;
+        }
+        
+        .totals-row {
+            font-weight: 700;
+            background: rgba(39, 174, 96, 0.1) !important;
+        }
+        
+        .totals-row td {
+            padding: 15px 8px;
+            font-size: 1.1rem;
+        }
+        
+        .income-total {
+            color: var(--success);
+        }
+        
+        .expenses-total {
+            color: var(--accent);
+        }
+        
+        .profit-total {
+            color: var(--primary);
+        }
+        
+        @media (min-width: 768px) {
+            body {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+                font-size: 18px;
+            }
+            
+            .diary-table th, .diary-table td {
+                padding: 15px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="app-title">
+            <span>Ежедневник мастера</span>
+        </div>
+        <div class="month-nav">
+            <button id="prev-month"><i class="fas fa-chevron-left"></i></button>
+            <div id="current-month" class="current-month">Июнь 2025</div>
+            <button id="next-month"><i class="fas fa-chevron-right"></i></button>
+        </div>
+    </header>
+
+    <main>
+        <table class="diary-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">День</th>
+                    <th>Запись / Имя / Время</th>
+                    <th style="width: 120px;">Цена</th>
+                    <th style="width: 200px;">Планы на день</th>
+                    <th style="width: 120px;">Расходы</th>
+                </tr>
+            </thead>
+            <tbody id="calendar-body">
+                <!-- Строки будут добавлены скриптом -->
+            </tbody>
+        </table>
+    </main>
+    
+    <div class="actions">
+        <button class="btn-primary" id="add-entry"><i class="fas fa-plus-circle"></i> Добавить запись</button>
+        <button id="export-csv"><i class="fas fa-file-export"></i> Экспорт</button>
+    </div>
+    
+    <!-- Модалки -->
+    <div id="entry-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">Новая запись</div>
+            <div class="modal-body">
+                <input type="hidden" id="entry-id">
+                <input type="hidden" id="entry-day">
+                <div class="form-group">
+                    <label for="entry-type" class="required">Тип записи</label>
+                    <select id="entry-type" required>
+                        <option value="">Выберите тип</option>
+                        <option value="work">Работа (тату/пирсинг)</option>
+                        <option value="personal">Личное (планы, дела)</option>
+                        <option value="expense">Расход</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="entry-title" class="required">Название</label>
+                    <input type="text" id="entry-title" required placeholder="Имя клиента или событие">
+                </div>
+                <div class="form-group" id="time-field">
+                    <label for="entry-time">Время</label>
+                    <input type="time" id="entry-time">
+                </div>
+                <div class="form-group" id="price-field" style="display: none;">
+                    <label for="entry-price">Стоимость (руб)</label>
+                    <input type="number" id="entry-price" min="0">
+                </div>
+                <div class="form-group" id="expense-field" style="display: none;">
+                    <label for="expense-category">Категория</label>
+                    <select id="expense-category">
+                        <option value="">Выберите категорию</option>
+                        <option value="Аренда">Аренда</option>
+                        <option value="Материалы">Материалы</option>
+                        <option value="Транспорт">Транспорт</option>
+                        <option value="Оборудование">Оборудование</option>
+                        <option value="Другое">Другое</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="entry-comment">Комментарий / Описание</label>
+                    <textarea id="entry-comment" placeholder="Детали записи..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="cancel-entry">Отмена</button>
+                <button class="btn-primary" id="save-entry">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Структуры данных
+        let entries = [];
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        
+        // DOM элементы
+        const calendarBody = document.getElementById('calendar-body');
+        const currentMonthEl = document.getElementById('current-month');
+        const entryTypeEl = document.getElementById('entry-type');
+        const priceFieldEl = document.getElementById('price-field');
+        const expenseFieldEl = document.getElementById('expense-field');
+        const timeFieldEl = document.getElementById('time-field');
+        
+        // Инициализация приложения
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            initMonthNavigation();
+            renderCalendar();
+            
+            // Назначение обработчиков
+            document.getElementById('add-entry').addEventListener('click', () => openEntryModal());
+            document.getElementById('export-csv').addEventListener('click', exportToCSV);
+            document.getElementById('save-entry').addEventListener('click', saveEntry);
+            document.getElementById('cancel-entry').addEventListener('click', closeModals);
+            
+            // Обработка изменения типа записи
+            entryTypeEl.addEventListener('change', () => {
+                const type = entryTypeEl.value;
+                priceFieldEl.style.display = type === 'work' ? 'block' : 'none';
+                expenseFieldEl.style.display = type === 'expense' ? 'block' : 'none';
+                timeFieldEl.style.display = type === 'expense' ? 'none' : 'block';
+            });
+            
+            // Инициализируем тестовые данные при первом запуске
+            initSampleData();
+        });
+        
+        // Загрузка данных из localStorage
+        function loadData() {
+            const savedEntries = localStorage.getItem('diary_entries');
+            if (savedEntries) entries = JSON.parse(savedEntries);
+        }
+        
+        // Автосохранение при любом изменении
+        function saveData() {
+            localStorage.setItem('diary_entries', JSON.stringify(entries));
+        }
+        
+        // Навигация по месяцам
+        function initMonthNavigation() {
+            document.getElementById('prev-month').addEventListener('click', () => {
+                currentMonth--;
+                if (currentMonth < 0) {
+                    currentMonth = 11;
+                    currentYear--;
+                }
+                updateMonthDisplay();
+                renderCalendar();
+            });
+            
+            document.getElementById('next-month').addEventListener('click', () => {
+                currentMonth++;
+                if (currentMonth > 11) {
+                    currentMonth = 0;
+                    currentYear++;
+                }
+                updateMonthDisplay();
+                renderCalendar();
+            });
+            
+            updateMonthDisplay();
+        }
+        
+        function updateMonthDisplay() {
+            const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                              'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+            currentMonthEl.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+        }
+        
+        // Отрисовка календаря
+        function renderCalendar() {
+            calendarBody.innerHTML = '';
+            
+            // Определяем количество дней в месяце
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            
+            let totalIncome = 0;
+            let totalExpenses = 0;
+            
+            // Создаем строки для каждого дня месяца
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const dayEntries = entries.filter(entry => entry.date === dateStr);
+                
+                const workEntries = dayEntries.filter(e => e.type === 'work');
+                const personalEntries = dayEntries.filter(e => e.type === 'personal');
+                const expenseEntries = dayEntries.filter(e => e.type === 'expense');
+                
+                // Рассчитываем суммы
+                const dayIncome = workEntries.reduce((sum, entry) => sum + (entry.price || 0), 0);
+                const dayExpenses = expenseEntries.reduce((sum, entry) => sum + (entry.price || 0), 0);
+                
+                totalIncome += dayIncome;
+                totalExpenses += dayExpenses;
+                
+                const row = document.createElement('tr');
+                row.dataset.date = dateStr;
+                
+                row.innerHTML = `
+                    <td class="day-number">${day}</td>
+                    <td class="day-entries">
+                        ${workEntries.map(entry => `
+                            <div class="day-entry work" data-id="${entry.id}">
+                                <div class="entry-time">${entry.time || ''}</div>
+                                <div class="entry-title">${entry.title}</div>
+                                ${entry.comment ? `<div class="entry-comment">${entry.comment}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </td>
+                    <td class="price-cell">
+                        ${dayIncome > 0 ? `<span class="price-value">${dayIncome} руб</span>` : ''}
+                    </td>
+                    <td class="plans-cell">
+                        ${personalEntries.map(entry => `
+                            <div class="plan-item" data-id="${entry.id}">
+                                <div class="entry-title">${entry.title}</div>
+                                ${entry.comment ? `<div class="entry-comment">${entry.comment}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </td>
+                    <td class="expenses-cell">
+                        ${expenseEntries.map(entry => `
+                            <div class="expense-item" data-id="${entry.id}">
+                                <span class="expense-value">${entry.price} руб</span>
+                                ${entry.category ? `<span class="expense-category">${entry.category}</span>` : ''}
+                            </div>
+                        `).join('')}
+                    </td>
+                `;
+                
+                // Добавляем обработчики для редактирования
+                row.querySelectorAll('.day-entry, .plan-item, .expense-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const entryId = item.dataset.id;
+                        const entry = entries.find(e => e.id === entryId);
+                        if (entry) {
+                            openEntryModal(entry);
+                        }
+                    });
+                });
+                
+                // Обработчик для добавления записи на день
+                row.addEventListener('click', (e) => {
+                    if (e.target === row || e.target.classList.contains('day-entries') || 
+                        e.target.classList.contains('plans-cell') || e.target.classList.contains('expenses-cell')) {
+                        openEntryModal(null, dateStr);
+                    }
+                });
+                
+                calendarBody.appendChild(row);
+            }
+            
+            // Добавляем итоговую строку
+            const totalRow = document.createElement('tr');
+            totalRow.className = 'totals-row';
+            totalRow.innerHTML = `
+                <td colspan="2">Итого за месяц</td>
+                <td class="income-total">${totalIncome} руб</td>
+                <td></td>
+                <td class="expenses-total">${totalExpenses} руб</td>
+            `;
+            calendarBody.appendChild(totalRow);
+            
+            // Строка с доходом
+            const profitRow = document.createElement('tr');
+            profitRow.className = 'totals-row';
+            const profit = totalIncome - totalExpenses;
+            profitRow.innerHTML = `
+                <td colspan="4">Доход</td>
+                <td class="profit-total">${profit} руб</td>
+            `;
+            calendarBody.appendChild(profitRow);
+        }
+        
+        // Работа с модальными окнами
+        function openEntryModal(entry = null, date = null) {
+            const modal = document.getElementById('entry-modal');
+            const modalTitle = modal.querySelector('.modal-header');
+            
+            if (entry) {
+                // Режим редактирования
+                modalTitle.textContent = 'Редактировать запись';
+                document.getElementById('entry-id').value = entry.id;
+                document.getElementById('entry-day').value = entry.date;
+                document.getElementById('entry-type').value = entry.type;
+                document.getElementById('entry-title').value = entry.title;
+                document.getElementById('entry-time').value = entry.time || '';
+                document.getElementById('entry-price').value = entry.price || '';
+                document.getElementById('entry-comment').value = entry.comment || '';
+                document.getElementById('expense-category').value = entry.category || '';
+                
+                // Показываем соответствующие поля
+                priceFieldEl.style.display = entry.type === 'work' ? 'block' : 'none';
+                expenseFieldEl.style.display = entry.type === 'expense' ? 'block' : 'none';
+                timeFieldEl.style.display = entry.type === 'expense' ? 'none' : 'block';
+            } else {
+                // Режим создания
+                modalTitle.textContent = 'Новая запись';
+                document.getElementById('entry-id').value = '';
+                document.getElementById('entry-day').value = date || 
+                    `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+                document.getElementById('entry-type').value = '';
+                document.getElementById('entry-title').value = '';
+                document.getElementById('entry-time').value = '';
+                document.getElementById('entry-price').value = '';
+                document.getElementById('entry-comment').value = '';
+                document.getElementById('expense-category').value = '';
+                
+                // Скрываем дополнительные поля
+                priceFieldEl.style.display = 'none';
+                expenseFieldEl.style.display = 'none';
+                timeFieldEl.style.display = 'block';
+            }
+            
+            modal.style.display = 'flex';
+        }
+        
+        function closeModals() {
+            document.getElementById('entry-modal').style.display = 'none';
+        }
+        
+        // Сохранение записи
+        function saveEntry() {
+            const id = document.getElementById('entry-id').value;
+            const type = document.getElementById('entry-type').value;
+            const date = document.getElementById('entry-day').value;
+            const title = document.getElementById('entry-title').value.trim();
+            const time = document.getElementById('entry-time').value;
+            const price = document.getElementById('entry-price').value;
+            const comment = document.getElementById('entry-comment').value.trim();
+            const category = document.getElementById('expense-category').value;
+            
+            // Валидация
+            if (!type || !title || !date) {
+                alert('Пожалуйста, заполните обязательные поля');
+                return;
+            }
+            
+            const entryData = {
+                id: id || Date.now().toString(),
+                type,
+                date,
+                title,
+                time: type !== 'expense' ? time || null : null,
+                price: (type === 'work' || type === 'expense') && price ? parseInt(price) : null,
+                comment: comment || null,
+                category: type === 'expense' ? category || null : null
+            };
+            
+            if (id) {
+                // Обновление существующей записи
+                const index = entries.findIndex(e => e.id === id);
+                if (index !== -1) entries[index] = entryData;
+            } else {
+                // Новая запись
+                entries.push(entryData);
+            }
+            
+            saveData();
+            renderCalendar();
+            closeModals();
+        }
+        
+        // Экспорт в CSV
+        function exportToCSV() {
+            // Формируем CSV для записей
+            let csvContent = "Дата;День;Тип;Название;Время;Стоимость;Категория;Комментарий\n";
+            
+            entries.forEach(entry => {
+                const date = new Date(entry.date);
+                const day = date.getDate();
+                
+                csvContent += `"${entry.date}";"${day}";"${getTypeName(entry.type)}";"${entry.title}";`;
+                csvContent += `"${entry.time || ''}";"${entry.price || ''}";"${entry.category || ''}";`;
+                csvContent += `"${(entry.comment || '').replace(/"/g, '""')}"\n`;
+            });
+            
+            // Создаем и скачиваем файл
+            const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `diary_${currentYear}-${currentMonth + 1}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Вспомогательные функции
+        function getTypeName(type) {
+            switch(type) {
+                case 'work': return 'Работа';
+                case 'personal': return 'Личное';
+                case 'expense': return 'Расход';
+                default: return 'Другое';
+            }
+        }
+        
+        // Инициализация тестовых данных
+        function initSampleData() {
+            if (entries.length === 0) {
+                const today = new Date();
+                const dateStr = today.toISOString().split('T')[0];
+                
+                entries = [
+                    {
+                        id: '1',
+                        type: 'work',
+                        date: dateStr,
+                        title: 'ДНД',
+                        time: '15:00',
+                        price: 4000,
+                        comment: 'Ван шот'
+                    },
+                    {
+                        id: '2',
+                        type: 'work',
+                        date: dateStr,
+                        title: 'Катя',
+                        time: '15:00',
+                        price: 3600,
+                        comment: 'Серьга'
+                    },
+                    {
+                        id: '3',
+                        type: 'work',
+                        date: dateStr,
+                        title: 'Князев',
+                        time: '16:00',
+                        price: 5000,
+                        comment: 'Муравей'
+                    },
+                    {
+                        id: '4',
+                        type: 'personal',
+                        date: dateStr,
+                        title: 'Встреча с друзьями',
+                        comment: 'Кафе "У озера"'
+                    },
+                    {
+                        id: '5',
+                        type: 'expense',
+                        date: dateStr,
+                        title: 'Материалы',
+                        price: 3500,
+                        category: 'Материалы'
+                    },
+                    {
+                        id: '6',
+                        type: 'expense',
+                        date: dateStr,
+                        title: 'Аренда',
+                        price: 5000,
+                        category: 'Аренда'
+                    }
+                ];
+                
+                saveData();
+            }
+        }
+        
+        // Закрытие модалок по клику вне области
+        window.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                closeModals();
+            }
+        });
+    </script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+</body>
+</html>
