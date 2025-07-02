@@ -10,6 +10,8 @@
             --accent: #e74c3c;
             --light: #f8f9fa;
             --border: #e0e0e0;
+            --profit: #27ae60;
+            --loss: #c0392b;
         }
         body {
             font-family: Arial, sans-serif;
@@ -58,6 +60,17 @@
             background: white;
             padding: 15px;
             border-radius: 5px;
+            margin-bottom: 60px; /* Добавлено место для кнопок */
+        }
+        .expense-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .delete-expense {
+            color: var(--accent);
+            cursor: pointer;
+            margin-left: 10px;
         }
         .actions {
             position: fixed;
@@ -77,6 +90,7 @@
             color: white;
             border-radius: 5px;
             flex: 1;
+            cursor: pointer;
         }
         .add-btn {
             background: var(--accent);
@@ -111,6 +125,39 @@
         .time-input {
             margin-top: 10px;
         }
+        .profit-positive {
+            color: var(--profit);
+            font-weight: bold;
+        }
+        .profit-negative {
+            color: var(--loss);
+            font-weight: bold;
+        }
+        .month-year-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin: 15px 0;
+        }
+        .month-option, .year-option {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .month-option.selected, .year-option.selected {
+            background: var(--primary);
+            color: white;
+        }
+        #current-month {
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        #current-month:hover {
+            background: #f0f0f0;
+        }
     </style>
 </head>
 <body>
@@ -142,6 +189,12 @@
         <div id="expenses-list"></div>
         <div style="margin-top: 15px;">
             <strong>Итого расходов:</strong> <span id="total-expenses">0</span> руб
+        </div>
+        <div style="margin-top: 10px;">
+            <strong>Общая выручка:</strong> <span id="total-income">0</span> руб
+        </div>
+        <div style="margin-top: 10px;">
+            <strong>Прибыль:</strong> <span id="profit">0</span> руб
         </div>
     </div>
 
@@ -183,6 +236,24 @@
         </div>
     </div>
 
+    <!-- Модальное окно выбора месяца -->
+    <div class="modal" id="month-picker-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Выберите месяц и год</h3>
+            <div class="month-year-selector">
+                <!-- Месяцы будут добавлены скриптом -->
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <input type="number" id="year-input" min="2000" max="2100" style="flex: 1; padding: 8px;" value="2025">
+                <button id="apply-year">Применить</button>
+            </div>
+            <div class="modal-actions">
+                <button id="cancel-month-picker">Отмена</button>
+                <button id="apply-month-picker">Применить</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Данные
         let records = [];
@@ -196,6 +267,7 @@
             loadData();
             renderCalendar();
             renderExpenses();
+            calculateProfit();
             
             // Навигация по месяцам
             document.getElementById('prev-month').addEventListener('click', prevMonth);
@@ -210,6 +282,28 @@
             document.getElementById('save-expense').addEventListener('click', saveExpense);
             document.getElementById('cancel-expense').addEventListener('click', () => {
                 document.getElementById('expense-modal').style.display = 'none';
+            });
+            
+            // Переключение месяцев по названию
+            document.getElementById('current-month').addEventListener('click', () => {
+                document.getElementById('month-picker-modal').style.display = 'flex';
+                renderMonthPicker();
+            });
+            
+            // Обработчики для выбора месяца
+            document.getElementById('apply-month-picker').addEventListener('click', applyMonthPicker);
+            document.getElementById('cancel-month-picker').addEventListener('click', () => {
+                document.getElementById('month-picker-modal').style.display = 'none';
+            });
+            document.getElementById('apply-year').addEventListener('click', () => {
+                const year = parseInt(document.getElementById('year-input').value);
+                if (year >= 2000 && year <= 2100) {
+                    currentYear = year;
+                    updateMonthDisplay();
+                    renderCalendar();
+                    renderExpenses();
+                    calculateProfit();
+                }
             });
             
             // Закрытие модалок по клику вне области
@@ -233,6 +327,7 @@
             updateMonthDisplay();
             renderCalendar();
             renderExpenses();
+            calculateProfit();
         }
         
         function nextMonth() {
@@ -244,6 +339,7 @@
             updateMonthDisplay();
             renderCalendar();
             renderExpenses();
+            calculateProfit();
         }
 
         // Загрузка/сохранение данных
@@ -402,6 +498,7 @@
             saveData();
             renderCalendar();
             document.getElementById('entry-modal').style.display = 'none';
+            calculateProfit(); // Пересчет прибыли
         }
 
         // Удаление записи
@@ -411,6 +508,7 @@
                 saveData();
                 renderCalendar();
                 document.getElementById('entry-modal').style.display = 'none';
+                calculateProfit(); // Пересчет прибыли
             }
         }
 
@@ -429,8 +527,22 @@
             } else {
                 monthExpenses.forEach(expense => {
                     const item = document.createElement('div');
-                    item.textContent = `${expense.name}: ${expense.amount} руб`;
-                    item.style.marginBottom = '5px';
+                    item.className = 'expense-item';
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = `${expense.name}: ${expense.amount} руб`;
+                    
+                    const deleteSpan = document.createElement('span');
+                    deleteSpan.className = 'delete-expense';
+                    deleteSpan.textContent = '✕';
+                    deleteSpan.title = 'Удалить расход';
+                    deleteSpan.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteExpense(expense.id);
+                    });
+                    
+                    item.appendChild(nameSpan);
+                    item.appendChild(deleteSpan);
                     list.appendChild(item);
                 });
             }
@@ -438,6 +550,14 @@
             // Итого расходов
             const total = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
             document.getElementById('total-expenses').textContent = total;
+        }
+        
+        // Удаление расхода
+        function deleteExpense(id) {
+            expenses = expenses.filter(e => e.id !== id);
+            saveData();
+            renderExpenses();
+            calculateProfit();
         }
 
         // Сохранение расхода
@@ -458,7 +578,42 @@
                 document.getElementById('expense-modal').style.display = 'none';
                 document.getElementById('expense-name').value = '';
                 document.getElementById('expense-amount').value = '';
+                calculateProfit();
             }
+        }
+        
+        // Расчет прибыли
+        function calculateProfit() {
+            // Сумма всех цен за месяц
+            let totalIncome = 0;
+            const monthRecords = records.filter(r => {
+                const [year, month] = r.date.split('-');
+                return parseInt(month) === currentMonth + 1 && parseInt(year) === currentYear && r.type === 'price';
+            });
+            
+            monthRecords.forEach(record => {
+                const amount = parseFloat(record.text) || 0;
+                totalIncome += amount;
+            });
+            
+            // Сумма расходов за месяц
+            const totalExpenses = expenses
+                .filter(e => {
+                    const [year, month] = e.date.split('-');
+                    return parseInt(month) === currentMonth + 1 && parseInt(year) === currentYear;
+                })
+                .reduce((sum, e) => sum + e.amount, 0);
+            
+            // Расчет прибыли
+            const profit = totalIncome - totalExpenses;
+            
+            // Обновление интерфейса
+            document.getElementById('total-income').textContent = totalIncome;
+            document.getElementById('profit').textContent = profit;
+            
+            // Стиль для прибыли/убытка
+            const profitElement = document.getElementById('profit');
+            profitElement.className = profit >= 0 ? 'profit-positive' : 'profit-negative';
         }
 
         // Обновление отображения месяца
@@ -466,6 +621,49 @@
             const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
                           'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
             document.getElementById('current-month').textContent = `${months[currentMonth]} ${currentYear}`;
+        }
+        
+        // Отрисовка выбора месяца
+        function renderMonthPicker() {
+            const container = document.querySelector('.month-year-selector');
+            container.innerHTML = '';
+            
+            const months = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 
+                           'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+            
+            months.forEach((month, index) => {
+                const option = document.createElement('div');
+                option.className = 'month-option';
+                if (index === currentMonth) {
+                    option.classList.add('selected');
+                }
+                option.textContent = month;
+                option.dataset.month = index;
+                option.addEventListener('click', () => {
+                    document.querySelectorAll('.month-option').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    option.classList.add('selected');
+                });
+                container.appendChild(option);
+            });
+            
+            document.getElementById('year-input').value = currentYear;
+        }
+        
+        // Применение выбранного месяца
+        function applyMonthPicker() {
+            const selectedMonth = document.querySelector('.month-option.selected');
+            if (selectedMonth) {
+                currentMonth = parseInt(selectedMonth.dataset.month);
+                currentYear = parseInt(document.getElementById('year-input').value);
+                
+                updateMonthDisplay();
+                renderCalendar();
+                renderExpenses();
+                calculateProfit();
+                document.getElementById('month-picker-modal').style.display = 'none';
+            }
         }
 
         // Запуск приложения
