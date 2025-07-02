@@ -47,6 +47,13 @@
             width: 30px;
             text-align: center;
         }
+        .entry-cell, .price-cell, .plans-cell {
+            min-height: 40px;
+            cursor: pointer;
+        }
+        .entry-content, .price-content, .plans-content {
+            min-height: 20px;
+        }
         .expenses {
             background: white;
             padding: 15px;
@@ -74,6 +81,36 @@
         .add-btn {
             background: var(--accent);
         }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .delete-btn {
+            background: var(--accent);
+        }
+        .time-input {
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -90,7 +127,7 @@
         <thead>
             <tr>
                 <th>День</th>
-                <th>Запись/Имя/Время</th>
+                <th>Запись</th>
                 <th>Цена</th>
                 <th>Планы</th>
             </tr>
@@ -109,8 +146,41 @@
     </div>
 
     <div class="actions">
-        <button class="add-btn" id="add-record">+ Запись</button>
-        <button id="add-expense">+ Расход</button>
+        <button id="add-expense">+ Добавить расход</button>
+    </div>
+
+    <!-- Модальное окно для записей -->
+    <div class="modal" id="entry-modal" style="display: none;">
+        <div class="modal-content">
+            <h3 id="modal-title">Редактировать запись</h3>
+            <input type="hidden" id="edit-day">
+            <input type="hidden" id="edit-type">
+            <div class="form-group">
+                <textarea id="edit-text" rows="3" style="width: 100%;"></textarea>
+                <div class="time-input">
+                    <label>Время: <input type="time" id="edit-time"></label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="delete-btn" id="delete-entry">Удалить</button>
+                <button id="save-entry">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для расходов -->
+    <div class="modal" id="expense-modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Добавить расход</h3>
+            <div class="form-group">
+                <input type="text" id="expense-name" placeholder="Название" style="width: 100%; margin-bottom: 10px;">
+                <input type="number" id="expense-amount" placeholder="Сумма" style="width: 100%;">
+            </div>
+            <div class="modal-actions">
+                <button id="save-expense">Сохранить</button>
+                <button id="cancel-expense">Отмена</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -119,6 +189,7 @@
         let expenses = [];
         let currentMonth = new Date().getMonth();
         let currentYear = new Date().getFullYear();
+        let currentEditId = null;
 
         // Инициализация
         function init() {
@@ -127,29 +198,52 @@
             renderExpenses();
             
             // Навигация по месяцам
-            document.getElementById('prev-month').addEventListener('click', () => {
-                currentMonth--;
-                if (currentMonth < 0) {
-                    currentMonth = 11;
-                    currentYear--;
-                }
-                updateMonthDisplay();
-                renderCalendar();
-                renderExpenses();
+            document.getElementById('prev-month').addEventListener('click', prevMonth);
+            document.getElementById('next-month').addEventListener('click', nextMonth);
+            
+            // Обработчики модальных окон
+            document.getElementById('save-entry').addEventListener('click', saveEntry);
+            document.getElementById('delete-entry').addEventListener('click', deleteEntry);
+            document.getElementById('add-expense').addEventListener('click', () => {
+                document.getElementById('expense-modal').style.display = 'flex';
+            });
+            document.getElementById('save-expense').addEventListener('click', saveExpense);
+            document.getElementById('cancel-expense').addEventListener('click', () => {
+                document.getElementById('expense-modal').style.display = 'none';
             });
             
-            document.getElementById('next-month').addEventListener('click', () => {
-                currentMonth++;
-                if (currentMonth > 11) {
-                    currentMonth = 0;
-                    currentYear++;
-                }
-                updateMonthDisplay();
-                renderCalendar();
-                renderExpenses();
+            // Закрытие модалок по клику вне области
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
             });
             
             updateMonthDisplay();
+        }
+
+        function prevMonth() {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            updateMonthDisplay();
+            renderCalendar();
+            renderExpenses();
+        }
+        
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            updateMonthDisplay();
+            renderCalendar();
+            renderExpenses();
         }
 
         // Загрузка/сохранение данных
@@ -185,44 +279,138 @@
                 dayCell.textContent = day <= daysInMonth ? day : '';
                 
                 // Ячейка с записями
-                const entriesCell = document.createElement('td');
+                const entryCell = document.createElement('td');
+                entryCell.className = 'entry-cell';
                 
                 // Ячейка с ценами
                 const priceCell = document.createElement('td');
+                priceCell.className = 'price-cell';
                 
                 // Ячейка с планами
                 const plansCell = document.createElement('td');
+                plansCell.className = 'plans-cell';
                 
                 if (day <= daysInMonth) {
                     const dateStr = `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-                    const dayRecords = records.filter(r => r.date === dateStr);
                     
-                    // Записи (услуги)
-                    const services = dayRecords.filter(r => r.type === 'service');
-                    services.forEach(service => {
-                        const entry = document.createElement('div');
-                        entry.textContent = `${service.time || ''} ${service.client}`;
-                        entriesCell.appendChild(entry);
-                        
-                        const price = document.createElement('div');
-                        price.textContent = `${service.price} руб`;
-                        priceCell.appendChild(price);
-                    });
+                    // Запись
+                    const entryDiv = document.createElement('div');
+                    entryDiv.className = 'entry-content';
+                    const entryRecord = records.find(r => r.date === dateStr && r.type === 'entry');
+                    if (entryRecord) {
+                        entryDiv.textContent = entryRecord.text;
+                        if (entryRecord.time) {
+                            const timeSpan = document.createElement('span');
+                            timeSpan.textContent = ` (${entryRecord.time})`;
+                            timeSpan.style.color = '#666';
+                            entryDiv.appendChild(timeSpan);
+                        }
+                    }
+                    entryCell.appendChild(entryDiv);
+                    entryCell.addEventListener('click', () => openEditor('entry', dateStr, entryRecord));
+                    
+                    // Цена
+                    const priceDiv = document.createElement('div');
+                    priceDiv.className = 'price-content';
+                    const priceRecord = records.find(r => r.date === dateStr && r.type === 'price');
+                    if (priceRecord) {
+                        priceDiv.textContent = priceRecord.text;
+                    }
+                    priceCell.appendChild(priceDiv);
+                    priceCell.addEventListener('click', () => openEditor('price', dateStr, priceRecord));
                     
                     // Планы
-                    const plans = dayRecords.filter(r => r.type === 'plan');
-                    plans.forEach(plan => {
-                        const item = document.createElement('div');
-                        item.textContent = plan.text;
-                        plansCell.appendChild(item);
-                    });
+                    const plansDiv = document.createElement('div');
+                    plansDiv.className = 'plans-content';
+                    const plansRecord = records.find(r => r.date === dateStr && r.type === 'plans');
+                    if (plansRecord) {
+                        plansDiv.textContent = plansRecord.text;
+                    }
+                    plansCell.appendChild(plansDiv);
+                    plansCell.addEventListener('click', () => openEditor('plans', dateStr, plansRecord));
                 }
                 
                 row.appendChild(dayCell);
-                row.appendChild(entriesCell);
+                row.appendChild(entryCell);
                 row.appendChild(priceCell);
                 row.appendChild(plansCell);
                 tbody.appendChild(row);
+            }
+        }
+
+        // Открытие редактора
+        function openEditor(type, date, record) {
+            const modal = document.getElementById('entry-modal');
+            document.getElementById('edit-day').value = date;
+            document.getElementById('edit-type').value = type;
+            
+            // Настройка заголовка
+            const titles = {
+                'entry': 'Запись',
+                'price': 'Цена',
+                'plans': 'Планы'
+            };
+            document.getElementById('modal-title').textContent = titles[type];
+            
+            // Заполнение данных
+            if (record) {
+                document.getElementById('edit-text').value = record.text;
+                document.getElementById('edit-time').value = record.time || '';
+                currentEditId = record.id;
+                document.getElementById('delete-entry').style.display = 'block';
+            } else {
+                document.getElementById('edit-text').value = '';
+                document.getElementById('edit-time').value = '';
+                currentEditId = null;
+                document.getElementById('delete-entry').style.display = 'none';
+            }
+            
+            // Показываем/скрываем поле времени
+            document.querySelector('.time-input').style.display = type === 'entry' ? 'block' : 'none';
+            
+            modal.style.display = 'flex';
+        }
+
+        // Сохранение записи
+        function saveEntry() {
+            const date = document.getElementById('edit-day').value;
+            const type = document.getElementById('edit-type').value;
+            const text = document.getElementById('edit-text').value.trim();
+            const time = document.getElementById('edit-time').value;
+            
+            if (currentEditId) {
+                // Обновление существующей записи
+                const index = records.findIndex(r => r.id === currentEditId);
+                if (index !== -1) {
+                    records[index] = {
+                        ...records[index],
+                        text,
+                        time: type === 'entry' ? time : undefined
+                    };
+                }
+            } else if (text) {
+                // Новая запись
+                records.push({
+                    id: Date.now().toString(),
+                    date,
+                    type,
+                    text,
+                    time: type === 'entry' ? time : undefined
+                });
+            }
+            
+            saveData();
+            renderCalendar();
+            document.getElementById('entry-modal').style.display = 'none';
+        }
+
+        // Удаление записи
+        function deleteEntry() {
+            if (currentEditId) {
+                records = records.filter(r => r.id !== currentEditId);
+                saveData();
+                renderCalendar();
+                document.getElementById('entry-modal').style.display = 'none';
             }
         }
 
@@ -242,6 +430,7 @@
                 monthExpenses.forEach(expense => {
                     const item = document.createElement('div');
                     item.textContent = `${expense.name}: ${expense.amount} руб`;
+                    item.style.marginBottom = '5px';
                     list.appendChild(item);
                 });
             }
@@ -249,6 +438,27 @@
             // Итого расходов
             const total = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
             document.getElementById('total-expenses').textContent = total;
+        }
+
+        // Сохранение расхода
+        function saveExpense() {
+            const name = document.getElementById('expense-name').value.trim();
+            const amount = parseInt(document.getElementById('expense-amount').value);
+            
+            if (name && amount) {
+                expenses.push({
+                    id: Date.now().toString(),
+                    date: `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-01`,
+                    name,
+                    amount
+                });
+                
+                saveData();
+                renderExpenses();
+                document.getElementById('expense-modal').style.display = 'none';
+                document.getElementById('expense-name').value = '';
+                document.getElementById('expense-amount').value = '';
+            }
         }
 
         // Обновление отображения месяца
